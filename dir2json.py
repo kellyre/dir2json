@@ -68,11 +68,11 @@ def glob_list(folder, outfile, match, mime, dirs):
                     file_rec['MIMEType'] = get_mime(afile)
                 records.append(file_rec)
                 file_count += 1
+                if file_count % 500 == 0:
+                    curr_time = datetime.now()
+                    total_mins = (curr_time - start_time).seconds/60.
+                    print(f"processed: {file_count} files so far in {total_mins} minutes.")
             out_f.write(json.dumps(records, indent=0))
-            if file_count % 500 == 0:
-                curr_time = datetime.now()
-                total_mins = (curr_time - start_time).seconds/60.
-                print(f"processed: {file_count} files so far in {total_mins} minutes.")
     except Exception as e:
         print(f"ERROR: {e}")
         return
