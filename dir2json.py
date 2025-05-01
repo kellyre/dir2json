@@ -19,17 +19,17 @@ IMAGE_EXT_LIST = [
     'int', 'bw', 'tga', 'tiff', 'tif', 'vtf', 'xbm', 'xcf', 'xpm',
     '3dv', 'amf', 'ai', 'awg', 'cgm', 'cdr', 'cmx', 'dxf', 'e2d',
     'egt', 'eps', 'fs', 'gbr', 'odg', 'svg', 'stl', 'vrml', 'x3d',
-    'sxd', 'v2d', 'vnd', 'wmf', 'emf', 'art', 'xar', 'png', 'webp',
+    'sxd', 'v2d', 'vnd', 'wmf', 'emf', 'art', 'xar', 'png',
     'jxr', 'hdp', 'wdp', 'cur', 'ecw', 'iff', 'lbm', 'liff', 'nrrd',
     'pam', 'pcx', 'pgf', 'sgi', 'rgb', 'rgba', 'bw', 'int', 'inta',
-    'sid', 'ras', 'sun', 'tga', 'heic', 'heif']
+    'sid', 'ras', 'sun', 'tga', 'heic', 'heif', 'avif', 'apng', 'jxl']
 
 VIDEO_EXT_LIST = [
     'webm', 'mkv', 'flv', 'vob', 'ogv', 'ogg', 'rrc', 'gifv', 'mng',
     'mov', 'avi', 'qt', 'wmv', 'yuv', 'rm', 'asf', 'amv', 'mp4',
     'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'm4v', 'svi',
     '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a',
-    'f4b', 'mod']
+    'f4b', 'mod', 'ts', 'webp']
 
 def get_mime(afile):
     ext = split(afile)[-1].split('.')[-1].lower()
@@ -40,11 +40,12 @@ def get_mime(afile):
     else:
         return f"{ext}/{ext}"
 
-def glob_list(folder, outfile, match, mime, dirs):
+def glob_list(folder, outfile, match, mime, dirs, max_age_days=None):
     glob_string = join(folder, "**", match)
     records = []
     file_count = 0
     start_time = datetime.now()
+    current_time = datetime.now()
     try:
         with open(outfile, 'w') as out_f:
             for afile in glob.glob(glob_string, recursive=True):
@@ -55,8 +56,19 @@ def glob_list(folder, outfile, match, mime, dirs):
                     continue
                 file_info = os.stat(afile)
                 m_dt = datetime.fromtimestamp(int(file_info.st_mtime))
+                
+                # Skip files older than max_age_days
+                if max_age_days is not None:
+                    age_days = (current_time - m_dt).days
+                    if age_days > max_age_days:
+                        continue
+                        
                 m_str = m_dt.astimezone().strftime("%Y:%m:%d %H:%M:%S%z")
-                c_dt = datetime.fromtimestamp(int(file_info.st_ctime))
+                # Get creation time in a cross-platform way
+                if hasattr(file_info, 'st_birthtime'):  # macOS, BSD
+                    c_dt = datetime.fromtimestamp(int(file_info.st_birthtime))
+                else:  # Windows, Linux (best approximation)
+                    c_dt = datetime.fromtimestamp(int(file_info.st_mtime))
                 c_str = c_dt.astimezone().strftime("%Y:%m:%d %H:%M:%S%z")
                 file_rec = {
                     "SourceFile": afile,
@@ -98,6 +110,8 @@ if __name__ == '__main__':
                         help='include directories')
     parser.add_argument('--no-dirs', dest='dirs', action='store_false',
                         help='don\'t include directories')
+    parser.add_argument('--max-age', dest='max_age', type=int, 
+                        help='maximum age of files in days')
     parser.set_defaults(match='*', mime=False, dirs=False)
     args = parser.parse_args()
 
@@ -110,6 +124,7 @@ if __name__ == '__main__':
         outfile=args.outfile,
         match=args.match,
         mime=args.mime,
-        dirs=args.dirs
+        dirs=args.dirs,
+        max_age_days=args.max_age
     )
 
